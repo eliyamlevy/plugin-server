@@ -1,2 +1,2 @@
-# rancher-plugins-server
-This repo is home to the Rancher Plugins fileserver.
+# plugin-server
+This repo is home to the Rancher plugin fileserver.

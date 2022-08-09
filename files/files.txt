@@ -1,3 +1,2 @@
 plugin1.txt
 plugin2.txt
-plugin3.txt
