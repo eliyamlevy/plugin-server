@@ -5,6 +5,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// type FileWatcher struct {
+// 	FileRegistry []string
+// }
+
+// func (fw *FileWatcher) New() *FileWatcher {
+// 	fw.FileRegistry
+
+// 	return fw
+// }
+
 func Start(dir string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

@@ -1,12 +1,18 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
+
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Hello World\n")
+}
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -20,14 +26,14 @@ func loggingMiddleware(next http.Handler) http.Handler {
 func New(dir string) *http.Server {
 	r := mux.NewRouter()
 
+	r.HandleFunc("/", HomeHandler)
+
 	// This will serve files under http://localhost:8000/files/<filename>
 	logrus.Infof("Serving files from %s\n", dir)
 	// fsys := dotFileHidingFileSystem{http.Dir(dir)}
 
 	r.PathPrefix("/files/").Handler(http.StripPrefix("/files/", http.FileServer(http.Dir(dir))))
 	r.Use(loggingMiddleware)
-
-	http.Handle("/", r)
 
 	srv := &http.Server{
 		Handler: r,
@@ -37,5 +43,6 @@ func New(dir string) *http.Server {
 		ReadTimeout:  15 * time.Second,
 	}
 
+	logrus.Infof("Created FileServer")
 	return srv
 }
