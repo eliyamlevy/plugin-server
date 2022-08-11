@@ -2,11 +2,12 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 )
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
@@ -14,26 +15,42 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World\n")
 }
 
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Do stuff here
-		logrus.Infof("Serving file '%v'", r.RequestURI)
-		// Call the next handler, which can be another middleware in the chain, or the final handler.
-		next.ServeHTTP(w, r)
-	})
+func FilesHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	w.WriteHeader(http.StatusOK)
+
+	filename := "files/" + string(vars["filename"])
+
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		log.Print(err)
+		content = []byte("File '" + filename + "' not found.\n")
+	}
+
+	fmt.Fprintf(w, "%s\n", string(content))
+}
+
+func FileListHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+
+	content, err := os.ReadFile("files/files.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Fprintf(w, "%s\n", string(content))
 }
 
 func New(dir string) *http.Server {
 	r := mux.NewRouter()
-
 	r.HandleFunc("/", HomeHandler)
-
-	// This will serve files under http://localhost:8000/files/<filename>
-	logrus.Infof("Serving files from %s\n", dir)
-	// fsys := dotFileHidingFileSystem{http.Dir(dir)}
-
+	// r.HandleFunc("/files/{filename}", FilesHandler)
+	r.HandleFunc("/files.txt", FileListHandler)
+	// This will serve files under http://localhost:8000/static/<filename>
+	log.Printf("Serving files from %s\n", dir)
 	r.PathPrefix("/files/").Handler(http.StripPrefix("/files/", http.FileServer(http.Dir(dir))))
-	r.Use(loggingMiddleware)
+
+	http.Handle("/", r)
 
 	srv := &http.Server{
 		Handler: r,
@@ -43,6 +60,5 @@ func New(dir string) *http.Server {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	logrus.Infof("Created FileServer")
 	return srv
 }

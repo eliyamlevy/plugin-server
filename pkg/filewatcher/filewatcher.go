@@ -22,7 +22,6 @@ func Start(dir string) {
 	}
 	defer watcher.Close()
 
-	done := make(chan bool)
 	go func() {
 		for {
 			select {
@@ -33,7 +32,10 @@ func Start(dir string) {
 				logrus.Debugf("event: %v", event)
 
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					logrus.Infof("modified file:%s", event.Name)
+					logrus.Infof("File Modified: %s", event.Name)
+				}
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					logrus.Infof("File Created: %s", event.Name)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -44,9 +46,9 @@ func Start(dir string) {
 		}
 	}()
 
+	logrus.Infof("Registered directory %s with Watcher", dir)
 	err = watcher.Add(dir)
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	<-done
 }
