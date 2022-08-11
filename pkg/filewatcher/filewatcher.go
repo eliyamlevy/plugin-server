@@ -22,6 +22,7 @@ func Start(dir string) {
 	}
 	defer watcher.Close()
 
+	done := make(chan bool)
 	go func() {
 		for {
 			select {
@@ -51,4 +52,5 @@ func Start(dir string) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	<-done
 }

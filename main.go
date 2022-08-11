@@ -24,7 +24,7 @@ func (a *Server) Run(cmd *cobra.Command, args []string) error {
 
 	//Registers files in the files directory and starts filewatching service
 	logrus.Infof("Starting FileWatcher")
-	fw.Start(a.Dir)
+	go fw.Start(a.Dir)
 
 	//Starts Server
 	logrus.Infof("Starting FileServer")
