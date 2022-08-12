@@ -18,4 +18,4 @@ ENV HOME ${DAPPER_SOURCE}
 WORKDIR ${DAPPER_SOURCE}
 
 ENTRYPOINT ["./scripts/entry"]
-CMD ["ci"]
+CMD ["default"]

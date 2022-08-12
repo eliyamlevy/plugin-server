@@ -1,18 +1,20 @@
 #!/bin/bash
-set -e
+# set -e
 
-source $(dirname $0)/version
+source $(dirname $0)
 
 cd $(dirname $0)/..
 
-mkdir -p dist/artifacts
-cp bin/plugin-server dist/artifacts/helm-locker${SUFFIX}
+# mkdir -p dist/artifacts
+# cp bin/plugin-server dist/artifacts/helm-locker${SUFFIX}
 
-IMAGE=${REPO}/plugin-server:${TAG}
-DOCKERFILE=package/Dockerfile
-if [ -e ${DOCKERFILE}.${ARCH} ]; then
-    DOCKERFILE=${DOCKERFILE}.${ARCH}
-fi
+# IMAGE=${REPO}/plugin-server:${TAG}
+# DOCKERFILE=package/Dockerfile
+# if [ -e ${DOCKERFILE}.${ARCH} ]; then
+#     DOCKERFILE=${DOCKERFILE}.${ARCH}
+# fi
 
-docker build -f ${DOCKERFILE} -t ${IMAGE} .
-echo Built ${IMAGE}
+# docker build -f ${DOCKERFILE} -t ${IMAGE} .
+# echo Built ${IMAGE}
+
+docker build -f package/Dockerfile -t rancher/plugin-server:dev .
