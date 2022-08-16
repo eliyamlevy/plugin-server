@@ -9,13 +9,21 @@ import (
 )
 
 type Start struct {
-	Dir string `usage:"Provide the plugin directory to serve from."`
+	Dir   string `usage:"Provide the plugin directory to serve from."`
+	Debug bool   `usage:"Set this field to 1 to enable debug logs."`
 }
 
 func (a *Start) Run(cmd *cobra.Command, args []string) error {
 	//Checks CLI input
 	if len(args) == 0 {
 		return cmd.Help()
+	}
+
+	//Init Logrus
+	if a.Debug {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
 	}
 
 	//Creates HTTP Fileserver and appropriate handlers

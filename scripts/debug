@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)
+
+docker run -p 8000:8000 -v /Users/eliyamlevy/go/src/github.com/rancher/plugin-server/files:/home/plugin-server/files rancher/plugin-server:dev start --dir files --debug 1

@@ -1,0 +1,2 @@
+files/plugin1.txt
+files/files.txt

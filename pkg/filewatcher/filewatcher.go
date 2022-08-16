@@ -1,8 +1,10 @@
 package filewatcher
 
 import (
-	"log"
+	"errors"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -14,13 +16,53 @@ type FileWatcher struct {
 	Dir          string
 }
 
-func (fw *FileWatcher) Init(dir string) {
-	fw.Dir = dir
-	rawFiles, err := os.ReadFile(dir + "/files.txt")
-	if err != nil {
+func (fw *FileWatcher) Refresh() {
+	fw.FileRegistry = nil
+	walkFunc := func(path string, d fs.DirEntry, err error) error {
+		//Check if current path is a directory
+		if d.IsDir() {
+			return nil
+		}
+
+		//If it's a file append to list
+		fw.FileRegistry = append(fw.FileRegistry, path)
+		logrus.Debugf("Adding file, %s, to registry", path)
+		return nil
+	}
+
+	if err := filepath.WalkDir(fw.Dir, walkFunc); err != nil {
 		logrus.Fatal(err)
 	}
-	fw.FileRegistry = strings.Split(string(rawFiles), "\n")
+
+	if !contains(fw.FileRegistry, "files/files.txt") {
+		fw.FileRegistry = append(fw.FileRegistry, "files/files.txt")
+	}
+}
+
+func (fw *FileWatcher) Init(dir string) {
+	fw.Dir = dir
+	if _, err := os.Stat(fw.Dir + "/files.txt"); errors.Is(err, os.ErrNotExist) {
+		logrus.Debugf("No files.txt found in %s, creating new files.txt.", fw.Dir)
+		fw.Refresh()
+		f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		newFilesTxt := ""
+		for _, s := range fw.FileRegistry {
+			newFilesTxt += s + "\n"
+		}
+		f.WriteString(newFilesTxt)
+		f.Close()
+
+	} else {
+		rawFiles, err := os.ReadFile(dir + "/files.txt")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		fw.FileRegistry = strings.Split(string(rawFiles), "\n")
+	}
 }
 
 func contains(s []string, str string) bool {
@@ -58,32 +100,43 @@ func (fw *FileWatcher) Start() {
 					}
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					logrus.Infof("File Created: %s, adding to registry", event.Name)
-					filename := strings.TrimPrefix(event.Name, "files/")
-					if !contains(fw.FileRegistry, filename) {
-						fw.FileRegistry = append(fw.FileRegistry, filename)
+					if fileInfo, _ := os.Stat(event.Name); fileInfo.IsDir() {
+						if err != nil {
+							logrus.Fatal(err)
+						}
+					} else {
+						logrus.Infof("File Created: %s, adding to registry", event.Name)
+						fw.Refresh()
 						f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 						if err != nil {
-							log.Println(err)
+							logrus.Fatal(err)
 						}
-						if _, err := f.WriteString(filename + "\n"); err != nil {
-							log.Println(err)
+						if _, err := f.WriteString(event.Name + "\n"); err != nil {
+							logrus.Fatal(err)
 						}
 						f.Close()
+						logrus.Infof("fw: %v", fw.FileRegistry)
 					}
+
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					logrus.Infof("File Deleted: %s", event.Name)
-					f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-					if err != nil {
-						log.Println(err)
+					if contains(fw.FileRegistry, event.Name) {
+						logrus.Infof("File or Directory Deleted: %s", event.Name)
+						fw.Refresh()
+						f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+						if err != nil {
+							logrus.Fatal(err)
+						}
+						newFilesTxt := ""
+						for _, s := range fw.FileRegistry {
+							newFilesTxt += s + "\n"
+						}
+						f.WriteString(newFilesTxt)
+						f.Close()
+						logrus.Infof("fw: %v", fw.FileRegistry)
+					} else {
+						logrus.Debugf("Remove Event: %s", event.Name)
 					}
-					newFilesTxt := ""
-					for _, s := range fw.FileRegistry {
-						newFilesTxt += s + "\n"
-					}
-					f.WriteString(newFilesTxt)
-					f.Close()
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
