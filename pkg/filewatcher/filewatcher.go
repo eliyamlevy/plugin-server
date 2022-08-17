@@ -34,8 +34,8 @@ func (fw *FileWatcher) Refresh() {
 		logrus.Fatal(err)
 	}
 
-	if !contains(fw.FileRegistry, "files/files.txt") {
-		fw.FileRegistry = append(fw.FileRegistry, "files/files.txt")
+	if !contains(fw.FileRegistry, fw.Dir+"/files.txt") {
+		fw.FileRegistry = append(fw.FileRegistry, fw.Dir+"/files.txt")
 	}
 }
 
@@ -100,7 +100,13 @@ func (fw *FileWatcher) Start() {
 					}
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					if fileInfo, _ := os.Stat(event.Name); fileInfo.IsDir() {
+					if fileInfo, err := os.Stat(event.Name); fileInfo.IsDir() {
+						if err != nil {
+							logrus.Fatal(err)
+						}
+						logrus.Debugf("Directory created: %s", event.Name)
+						logrus.Infof("Registering new sub-directory %s with Watcher", event.Name)
+						err = watcher.Add(event.Name)
 						if err != nil {
 							logrus.Fatal(err)
 						}
@@ -153,4 +159,20 @@ func (fw *FileWatcher) Start() {
 		logrus.Fatal(err)
 	}
 	<-done
+}
+
+func (fw *FileWatcher) Update() {
+	logrus.Info("Updating files.txt")
+	fw.Refresh()
+	f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	newFilesTxt := ""
+	for _, s := range fw.FileRegistry {
+		newFilesTxt += s + "\n"
+	}
+	f.WriteString(newFilesTxt)
+	f.Close()
+	logrus.Infof("fw: %v", fw.FileRegistry)
 }

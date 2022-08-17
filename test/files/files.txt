@@ -1,2 +1,5 @@
-files/plugin1.txt
+files/asset/test
 files/files.txt
+files/plugin1.txt
+files/test/test2/art
+files/test/test2/art
