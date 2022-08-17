@@ -19,7 +19,6 @@ type FileWatcher struct {
 }
 
 func (fw *FileWatcher) Update() {
-	fw.mu.Lock()
 	fw.FileRegistry = nil
 	walkFunc := func(path string, d fs.DirEntry, err error) error {
 		//Check if current path is a directory
@@ -40,7 +39,6 @@ func (fw *FileWatcher) Update() {
 	if !contains(fw.FileRegistry, fw.Dir+"/files.txt") {
 		fw.FileRegistry = append(fw.FileRegistry, fw.Dir+"/files.txt")
 	}
-	fw.mu.Unlock()
 }
 
 func (fw *FileWatcher) Init(dir string) {
@@ -100,7 +98,6 @@ func (fw *FileWatcher) Start() {
 					return
 				}
 				logrus.Debugf("event: %v", event)
-				fw.mu.Lock()
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					if event.Name == "files/files.txt" {
 						logrus.Debugf("File Modified: %s", event.Name)
@@ -109,14 +106,17 @@ func (fw *FileWatcher) Start() {
 					}
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
+					fw.mu.Lock()
 					if fileInfo, err := os.Stat(event.Name); fileInfo.IsDir() {
 						if err != nil {
+							fw.mu.Unlock()
 							logrus.Fatal(err)
 						}
 						logrus.Debugf("Directory created: %s", event.Name)
 						logrus.Infof("Registering new sub-directory %s with Watcher", event.Name)
 						err = fw.Watcher.Add(event.Name)
 						if err != nil {
+							fw.mu.Unlock()
 							logrus.Fatal(err)
 						}
 					} else {
@@ -124,22 +124,26 @@ func (fw *FileWatcher) Start() {
 						fw.Update()
 						f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 						if err != nil {
+							fw.mu.Unlock()
 							logrus.Fatal(err)
 						}
 						if _, err := f.WriteString(event.Name + "\n"); err != nil {
+							fw.mu.Unlock()
 							logrus.Fatal(err)
 						}
 						f.Close()
 						logrus.Infof("fw: %v", fw.FileRegistry)
 					}
-
+					fw.mu.Unlock()
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					fw.mu.Lock()
 					if contains(fw.FileRegistry, event.Name) {
 						logrus.Infof("File or Directory Deleted: %s", event.Name)
 						fw.Update()
 						f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 						if err != nil {
+							fw.mu.Unlock()
 							logrus.Fatal(err)
 						}
 						newFilesTxt := ""
@@ -152,12 +156,15 @@ func (fw *FileWatcher) Start() {
 					} else {
 						logrus.Debugf("Remove Event: %s", event.Name)
 					}
+					fw.mu.Unlock()
 				}
 				if event.Name == "refresh" {
+					fw.mu.Lock()
 					logrus.Info("Updating files.txt")
-					fw.Refresh()
+					fw.Update()
 					f, err := os.OpenFile(fw.Dir+"/files.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 					if err != nil {
+						fw.mu.Unlock()
 						logrus.Fatal(err)
 					}
 					newFilesTxt := ""
@@ -167,8 +174,8 @@ func (fw *FileWatcher) Start() {
 					f.WriteString(newFilesTxt)
 					f.Close()
 					logrus.Infof("fw: %v", fw.FileRegistry)
+					fw.mu.Unlock()
 				}
-				fw.mu.Unlock()
 			case err, ok := <-fw.Watcher.Errors:
 				if !ok {
 					return
