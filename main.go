@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/rancher/plugin-server/pkg/filewatcher"
-	server "github.com/rancher/plugin-server/pkg/server"
+	"github.com/rancher/plugin-server/pkg/server"
 	cli "github.com/rancher/wrangler-cli"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -26,10 +26,6 @@ func (a *Start) Run(cmd *cobra.Command, args []string) error {
 		logrus.SetLevel(logrus.InfoLevel)
 	}
 
-	//Creates HTTP Fileserver and appropriate handlers
-	logrus.Infof("Creating FileServer")
-	srv := server.New(a.Dir)
-
 	//Registers files in the files directory and starts filewatching service
 	logrus.Infof("Creating FileWatcher")
 	fw := new(filewatcher.FileWatcher)
@@ -38,9 +34,14 @@ func (a *Start) Run(cmd *cobra.Command, args []string) error {
 	logrus.Infof("Starting FileWatcher")
 	go fw.Start()
 
+	//Creates HTTP Fileserver and appropriate handlers
+	logrus.Infof("Creating FileServer")
+	srv := new(server.FileServer)
+	srv.Init(a.Dir, fw)
+
 	//Starts Server
 	logrus.Infof("Starting FileServer")
-	logrus.Fatal(srv.ListenAndServe())
+	logrus.Fatal(srv.Srv.ListenAndServe())
 	return nil
 }
 
