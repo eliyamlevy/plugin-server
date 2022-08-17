@@ -2,22 +2,24 @@ package filewatcher
 
 import (
 	"errors"
+	"github.com/fsnotify/fsnotify"
+	"github.com/sirupsen/logrus"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
+	"sync"
 )
 
 type FileWatcher struct {
 	FileRegistry []string
 	Dir          string
 	Watcher      *fsnotify.Watcher
+	mu           sync.Mutex
 }
 
 func (fw *FileWatcher) Update() {
+	fw.mu.Lock()
 	fw.FileRegistry = nil
 	walkFunc := func(path string, d fs.DirEntry, err error) error {
 		//Check if current path is a directory
@@ -38,6 +40,7 @@ func (fw *FileWatcher) Update() {
 	if !contains(fw.FileRegistry, fw.Dir+"/files.txt") {
 		fw.FileRegistry = append(fw.FileRegistry, fw.Dir+"/files.txt")
 	}
+	fw.mu.Unlock()
 }
 
 func (fw *FileWatcher) Init(dir string) {
@@ -97,7 +100,7 @@ func (fw *FileWatcher) Start() {
 					return
 				}
 				logrus.Debugf("event: %v", event)
-
+				fw.mu.Lock()
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					if event.Name == "files/files.txt" {
 						logrus.Debugf("File Modified: %s", event.Name)
@@ -165,6 +168,7 @@ func (fw *FileWatcher) Start() {
 					f.Close()
 					logrus.Infof("fw: %v", fw.FileRegistry)
 				}
+				fw.mu.Unlock()
 			case err, ok := <-fw.Watcher.Errors:
 				if !ok {
 					return
