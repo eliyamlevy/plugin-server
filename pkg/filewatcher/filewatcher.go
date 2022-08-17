@@ -43,6 +43,10 @@ func (fw *FileWatcher) Update() {
 
 func (fw *FileWatcher) Init(dir string) {
 	fw.Dir = dir
+	if _, err := os.Stat(fw.Dir); errors.Is(err, os.ErrNotExist) {
+		logrus.Infof("Could not find provided plugin files directory: %s", fw.Dir)
+		logrus.Fatal(err)
+	}
 	if _, err := os.Stat(fw.Dir + "/files.txt"); errors.Is(err, os.ErrNotExist) {
 		logrus.Debugf("No files.txt found in %s, creating new files.txt.", fw.Dir)
 		fw.Update()
@@ -185,9 +189,18 @@ func (fw *FileWatcher) Start() {
 		}
 	}()
 
-	logrus.Infof("Registered directory %s with Watcher", fw.Dir)
-	err = fw.Watcher.Add(fw.Dir)
-	if err != nil {
+	walkFunc := func(path string, d fs.DirEntry, err error) error {
+		//Check if current path is a directory
+		if d.IsDir() {
+			err = fw.Watcher.Add(path)
+			if err != nil {
+				logrus.Fatal(err)
+			}
+			logrus.Infof("Registered directory %s with Watcher", path)
+		}
+		return nil
+	}
+	if err := filepath.WalkDir(fw.Dir, walkFunc); err != nil {
 		logrus.Fatal(err)
 	}
 	<-done

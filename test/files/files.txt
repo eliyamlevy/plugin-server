@@ -2,3 +2,4 @@ files/asset/test
 files/files.txt
 files/plugin1.txt
 files/test/plugin1asset
+files/test/assets/test3
